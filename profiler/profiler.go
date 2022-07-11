@@ -48,7 +48,7 @@ func (p *Profiler) createBaseDirIfNotExists() error {
 		p.baseDir = os.TempDir()
 	} else {
 		if err := os.MkdirAll(p.baseDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create directory: %w", p.baseDir)
+			return fmt.Errorf("failed to create directory %s: %w", p.baseDir, err)
 		}
 	}
 	return nil
