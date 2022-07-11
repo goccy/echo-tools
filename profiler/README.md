@@ -14,29 +14,29 @@ If you want to see the previous result, you can also refer to the past result by
 package main
 
 import (
-    middlewaretools "github.com/goccy/echo-tools/middleware"
-	profilertools "github.com/goccy/echo-tools/profiler"
-	"github.com/labstack/echo/v4"
+  middlewaretools "github.com/goccy/echo-tools/middleware"
+  profilertools "github.com/goccy/echo-tools/profiler"
+  "github.com/labstack/echo/v4"
 )
 
 var (
-    notifier = middlewaretools.NewBenchmarkFinishEventNotifier(onBenchmarkFinished)
-    profiler = profilertools.NewProfiler("profile")
+  notifier = middlewaretools.NewBenchmarkFinishEventNotifier(onBenchmarkFinished)
+  profiler = profilertools.NewProfiler("profile")
 )
 
 func startBenchmark(c echo.Context) error {
-	notifier.Start()
-    profiler.Start()
-	return c.JSON(http.StatusOK, struct{}{})
+  notifier.Start()
+  profiler.Start()
+  return c.JSON(http.StatusOK, struct{}{})
 }
 
 func onBenchmarkFinished() {
-    profiler.Stop()
+  profiler.Stop()
 }
 
 func main() {
-    go profiler.ListenAndServe(8080)
-    e := echo.New()
-    e.Use(notifier.Middleware())
+  go profiler.ListenAndServe(8080)
+  e := echo.New()
+  e.Use(notifier.Middleware())
 }
 ```
