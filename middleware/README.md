@@ -4,7 +4,7 @@
 
 After starting the benchmark, the middleware that calls an arbitrary function when there are no more requests.
 
-```
+```go
 package main
 
 import (
