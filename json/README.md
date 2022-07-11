@@ -2,7 +2,7 @@
 
 Switch JSON Serializer to faster one ( github.com/goccy/go-json )
 
-```
+```go
 package main
 
 import (
