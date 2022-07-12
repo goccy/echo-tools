@@ -16,6 +16,11 @@ import (
 	"github.com/google/pprof/profile"
 )
 
+type SubProfiler interface {
+	Start() error
+	Stop() error
+}
+
 type Profiler struct {
 	baseDir         string
 	mux             *http.ServeMux
@@ -24,6 +29,7 @@ type Profiler struct {
 	pprofFile       *os.File
 	redirectOnce    sync.Once
 	redirectHandler *redirectHandler
+	subProfilers    []SubProfiler
 }
 
 type redirectHandler struct {
@@ -41,6 +47,10 @@ func NewProfiler(baseDir string) *Profiler {
 		mux:             http.NewServeMux(),
 		redirectHandler: &redirectHandler{},
 	}
+}
+
+func (p *Profiler) AddProfiler(profiler SubProfiler) {
+	p.subProfilers = append(p.subProfilers, profiler)
 }
 
 func (p *Profiler) createBaseDirIfNotExists() error {
@@ -131,6 +141,11 @@ func (p *Profiler) Start() error {
 	p.pprofFile = f
 	log.Printf("start pprof: report to %s", pprofFilePath)
 	pprof.StartCPUProfile(f)
+	for _, sub := range p.subProfilers {
+		if err := sub.Start(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -142,6 +157,11 @@ func (p *Profiler) Stop() error {
 	if p.served {
 		if err := p.addProfileResult(p.pprofFile.Name()); err != nil {
 			return fmt.Errorf("failed to add profile result: %w", err)
+		}
+	}
+	for _, sub := range p.subProfilers {
+		if err := sub.Stop(); err != nil {
+			return err
 		}
 	}
 	return nil
