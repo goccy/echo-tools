@@ -32,16 +32,26 @@ type AccessLogProfiler struct {
 	discordWebhookURL string
 }
 
-func NewAccessLogProfiler(e *echo.Echo, hostAddr string) *AccessLogProfiler {
+type AccessLogProfilerOption func(*AccessLogProfiler)
+
+func AccessLogDiscordNotifierOption(botName, webhookURL, githubToken string) AccessLogProfilerOption {
+	return func(p *AccessLogProfiler) {
+		p.botName = botName
+		p.discordWebhookURL = webhookURL
+		p.githubToken = githubToken
+	}
+}
+
+func NewAccessLogProfiler(e *echo.Echo, hostAddr string, opts ...AccessLogProfilerOption) *AccessLogProfiler {
 	p := &AccessLogProfiler{
 		echo:              e,
 		hostAddr:          hostAddr,
 		accessLogFileName: nginxAccessLog,
-		botName:           "",
-		githubToken:       "",
-		discordWebhookURL: "",
 	}
 	e.POST(accessLogEndpoint, echo.WrapHandler(&AccessLogHandler{}))
+	for _, opt := range opts {
+		opt(p)
+	}
 	return p
 }
 
