@@ -6,7 +6,7 @@ Switch JSON Serializer to faster one ( github.com/goccy/go-json )
 package main
 
 import (
-    "jsontools "github.com/goccy/echo-tools/json"
+    jsontools "github.com/goccy/echo-tools/json"
     "github.com/labstack/echo/v4"
 )
 
