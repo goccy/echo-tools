@@ -1,0 +1,8 @@
+export HTTP_PORT=1323
+export BOT_ACCOUNT_NAME="bot"
+export DISCORD_WEBHOOK_URL=""
+export GITHUB_TOKEN=""
+export REVERSE_PROXY_HOST="127.0.0.1"
+export MYSQL_HOST="127.0.0.1"
+export KATARIBE_CONF_FILE_PATH=""
+export DEBUG=true
