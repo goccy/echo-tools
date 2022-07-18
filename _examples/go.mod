@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	github.com/goccy/go-json v0.9.8 // indirect
+	github.com/goccy/go-json v0.9.10 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-github/v45 v45.2.0 // indirect

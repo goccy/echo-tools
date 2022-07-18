@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/goccy/go-json v0.9.8
+	github.com/goccy/go-json v0.9.10
 	github.com/google/go-github/v45 v45.2.0
 	github.com/google/pprof v0.0.0-20220608213341-c488b8fa1db3
 	github.com/labstack/echo/v4 v4.7.2
