@@ -159,9 +159,9 @@ func (p *Profiler) Stop() error {
 			return fmt.Errorf("failed to add profile result: %w", err)
 		}
 	}
-	for _, sub := range p.subProfilers {
+	for idx, sub := range p.subProfilers {
 		if err := sub.Stop(); err != nil {
-			return err
+			log.Printf("failed to stop profiler%d: %+v", idx, err)
 		}
 	}
 	return nil
