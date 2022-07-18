@@ -65,6 +65,9 @@ func NewMySQLSlowQueryLogProfiler(e *echo.Echo, hostAddr string, db *sql.DB, opt
 
 func (p *MySQLSlowQueryLogProfiler) Start() error {
 	log.Printf("slow query log: %s", p.slowQueryLogFileName)
+	if _, err := p.db.Exec("SET GLOBAL slow_query_log = 1"); err != nil {
+		return fmt.Errorf("failed to enable slow_query_log: %w", err)
+	}
 	if _, err := p.db.Exec(
 		fmt.Sprintf(
 			"SET GLOBAL slow_query_log_file = `%s`",
