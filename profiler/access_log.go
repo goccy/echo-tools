@@ -1,6 +1,7 @@
 package profiler
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -153,7 +154,108 @@ func (h *AccessLogHandler) handle(ctx context.Context, body io.Reader) error {
 	if err != nil {
 		return err
 	}
-	return execKataribe(ctx, req)
+
+	ltsvToWithTime(req.FileName, req.FileName+".withtime")
+
+	return execKataribe(ctx, AccessLogRequest{
+		FileName:          req.FileName + ".withTime",
+		KataribeConfPath:  req.KataribeConfPath,
+		ALPOption:         req.ALPOption,
+		Routes:            req.Routes,
+		BotName:           req.BotName,
+		GitHubToken:       req.GitHubToken,
+		DiscordWebhookURL: req.DiscordWebhookURL,
+	})
+}
+
+/*
+log_format with_time '$remote_addr - $remote_user [$time_local] '
+            '"$request" $status $body_bytes_sent '
+            '"$http_referer" "$http_user_agent" $request_time';
+
+log_format ltsv "time:$time_local"
+            "\thost:$remote_addr"
+            "\tremotehost:$remote_user"
+            "\treq:$request"
+            "\tstatus:$status"
+            "\tmethod:$request_method"
+            "\turi:$request_uri"
+            "\tsize:$body_bytes_sent"
+            "\treferer:$http_referer"
+            "\tua:$http_user_agent"
+            "\treqtime:$request_time"
+            "\tcache:$upstream_http_x_cache"
+            "\truntime:$upstream_http_x_runtime"
+            "\tapptime:$upstream_response_time";
+*/
+
+type timeFormat struct {
+	remoteAddr    string
+	remoteUser    string
+	timeLocal     string
+	request       string
+	status        string
+	bodyBytesSent string
+	httpReferer   string
+	httpUserAgent string
+	requestTime   string
+}
+
+func getValue(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] == ':' {
+			return s[i+1:]
+		}
+	}
+	return s
+}
+
+func ltsv2Time(ltsv string) string {
+	strs := strings.Split(ltsv, "\t")
+	tfmt := timeFormat{
+		remoteAddr:    getValue(strs[1]),
+		remoteUser:    getValue(strs[2]),
+		timeLocal:     getValue(strs[0]),
+		request:       getValue(strs[3]),
+		status:        getValue(strs[4]),
+		bodyBytesSent: getValue(strs[7]),
+		httpReferer:   getValue(strs[8]),
+		httpUserAgent: getValue(strs[9]),
+		requestTime:   getValue(strs[10]),
+	}
+	return fmt.Sprintf("%s - %s [%s] %s %s %s %s %s %s",
+		tfmt.remoteAddr,
+		tfmt.remoteUser,
+		tfmt.timeLocal,
+		tfmt.request,
+		tfmt.status,
+		tfmt.bodyBytesSent,
+		tfmt.httpReferer,
+		tfmt.httpUserAgent,
+		tfmt.requestTime,
+	)
+}
+
+func ltsvToWithTime(inputPath, outputPath string) error {
+	rfp, err := os.Open(inputPath)
+	if err != nil {
+		return err
+	}
+	defer rfp.Close()
+
+	wfp, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer wfp.Close()
+
+	scanner := bufio.NewScanner(rfp)
+	for scanner.Scan() {
+		withTime := ltsv2Time(scanner.Text())
+		wfp.Write([]byte(withTime))
+	}
+	wfp.Sync()
+	return nil
 }
 
 func execKataribe(ctx context.Context, req AccessLogRequest) error {
