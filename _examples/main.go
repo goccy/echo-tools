@@ -102,5 +102,5 @@ func main() {
 		}
 	}
 
-	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", os.Getenv("HTTP_PORT"))))
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", os.Getenv("HTTP_PORT"))))
 }
