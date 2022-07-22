@@ -2,6 +2,7 @@ package json
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/goccy/go-json"
@@ -23,8 +24,11 @@ func (s *Serializer) Serialize(c echo.Context, v interface{}, indent string) err
 }
 
 func (s *Serializer) Deserialize(c echo.Context, v interface{}) error {
-	err := json.NewDecoder(c.Request().Body).DecodeWithOption(
-		v,
+	buf, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return fmt.Errorf("failed to read buffer: %w", err)
+	}
+	err = json.UnmarshalWithOption(buf, v,
 		json.DecodeFieldPriorityFirstWin(),
 	)
 	if e, ok := err.(*json.UnmarshalTypeError); ok {
