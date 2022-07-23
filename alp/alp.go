@@ -9,7 +9,7 @@ func ConvertEchoRoutes(routes []string) string {
 	for _, s := range routes {
 		found := false
 		for i := 1; i < len(s); i++ {
-			if s[i] == '/' && s[i+1] == ':' {
+			if i < len(s)-1 && s[i] == '/' && s[i+1] == ':' {
 				next := len(s)
 				for j := i + 2; j < len(s); j++ {
 					if s[j] == '/' {

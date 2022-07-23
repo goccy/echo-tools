@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/goccy/echo-tools/alp"
 	"github.com/goccy/echo-tools/gist"
@@ -21,8 +22,16 @@ import (
 )
 
 const (
-	nginxAccessLog    = "/var/log/nginx/access.log"
-	accessLogEndpoint = "/debug/accessLog"
+	nginxAccessLog      = "/var/log/nginx/access.log"
+	accessLogEndpoint   = "/debug/accessLog"
+	accessLogFileFormat = "2006_01_02_15_04_05"
+)
+
+var (
+	kataribeAccessLog string
+	kataribeLogFile   string
+	alpAccessLog      string
+	alpLogFile        string
 )
 
 type AccessLogProfiler struct {
@@ -63,8 +72,15 @@ func NewAccessLogProfiler(e *echo.Echo, hostAddr string, opts ...AccessLogProfil
 
 func (p *AccessLogProfiler) Start() error {
 	log.Print("[benchmark-access-log-profiler] Start")
+
+	now := time.Now().Format(accessLogFileFormat)
+	alpAccessLog = nginxAccessLog
+	alpLogFile = fmt.Sprintf("%s.%s", "alp.log", now)
+	kataribeAccessLog = fmt.Sprintf("%s.%s.%s", nginxAccessLog, "kataribe", now)
+	kataribeLogFile = fmt.Sprintf("%s.%s", "katarib.log", now)
+
 	cmdMv := exec.Command(
-		"sh", "-c", fmt.Sprintf("sudo mv %s %s.`date +%%Y%%m%%d-%%H%%M%%S`", nginxAccessLog, nginxAccessLog),
+		"sh", "-c", fmt.Sprintf("sudo mv %s %s", nginxAccessLog, alpAccessLog),
 	)
 	mvOut, err := cmdMv.CombinedOutput()
 	if err != nil {
@@ -120,9 +136,12 @@ func (p *AccessLogProfiler) Stop() error {
 	}
 	req.Header.Add("Content-Type", "application/json")
 	httpClient := new(http.Client)
-	if _, err := httpClient.Do(req); err != nil {
+	resp, err := httpClient.Do(req)
+	if err != nil {
 		return fmt.Errorf("failed to post %s: %w", url, err)
 	}
+	buf, _ := io.ReadAll(resp.Body)
+	fmt.Printf("result: %s\n", string(buf))
 	return nil
 }
 
@@ -150,15 +169,14 @@ func (h *AccessLogHandler) handle(ctx context.Context, body io.Reader) error {
 		return fmt.Errorf("failed to find access-log filename")
 	}
 
-	err := execALP(ctx, req)
-	if err != nil {
+	if err := execALP(ctx, req); err != nil {
 		return err
 	}
 
-	ltsvToWithTime(req.FileName, req.FileName+".withtime")
+	ltsvToWithTime(alpAccessLog, kataribeAccessLog)
 
 	return execKataribe(ctx, AccessLogRequest{
-		FileName:          req.FileName + ".withTime",
+		FileName:          kataribeAccessLog,
 		KataribeConfPath:  req.KataribeConfPath,
 		ALPOption:         req.ALPOption,
 		Routes:            req.Routes,
@@ -175,7 +193,6 @@ log_format with_time '$remote_addr - $remote_user [$time_local] '
 
 log_format ltsv "time:$time_local"
             "\thost:$remote_addr"
-            "\tremotehost:$remote_user"
             "\treq:$request"
             "\tstatus:$status"
             "\tmethod:$request_method"
@@ -211,19 +228,22 @@ func getValue(s string) string {
 }
 
 func ltsv2Time(ltsv string) string {
+	if ltsv == "" {
+		return ""
+	}
 	strs := strings.Split(ltsv, "\t")
 	tfmt := timeFormat{
 		remoteAddr:    getValue(strs[1]),
-		remoteUser:    getValue(strs[2]),
+		remoteUser:    "-",
 		timeLocal:     getValue(strs[0]),
-		request:       getValue(strs[3]),
-		status:        getValue(strs[4]),
-		bodyBytesSent: getValue(strs[7]),
-		httpReferer:   getValue(strs[8]),
-		httpUserAgent: getValue(strs[9]),
-		requestTime:   getValue(strs[10]),
+		request:       getValue(strs[2]),
+		status:        getValue(strs[3]),
+		bodyBytesSent: getValue(strs[6]),
+		httpReferer:   getValue(strs[7]),
+		httpUserAgent: getValue(strs[8]),
+		requestTime:   getValue(strs[9]),
 	}
-	return fmt.Sprintf("%s - %s [%s] %s %s %s %s %s %s",
+	return fmt.Sprintf("%s - %s [%s] \"%s\" %s %s \"%s\" \"%s\" %s",
 		tfmt.remoteAddr,
 		tfmt.remoteUser,
 		tfmt.timeLocal,
@@ -237,6 +257,7 @@ func ltsv2Time(ltsv string) string {
 }
 
 func ltsvToWithTime(inputPath, outputPath string) error {
+	log.Printf("%s -> %s", inputPath, outputPath)
 	rfp, err := os.Open(inputPath)
 	if err != nil {
 		return err
@@ -249,18 +270,30 @@ func ltsvToWithTime(inputPath, outputPath string) error {
 	}
 	defer wfp.Close()
 
-	scanner := bufio.NewScanner(rfp)
-	for scanner.Scan() {
-		withTime := ltsv2Time(scanner.Text())
-		wfp.Write([]byte(withTime))
+	i := 0
+	reader := bufio.NewReaderSize(rfp, 4096)
+	for {
+		line, _, err := reader.ReadLine()
+		withTime := ltsv2Time(string(line))
+		wfp.Write([]byte(withTime + "\n"))
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		i++
+		if i%100 == 0 {
+			wfp.Sync()
+		}
 	}
-	wfp.Sync()
 	return nil
 }
 
 func execKataribe(ctx context.Context, req AccessLogRequest) error {
 	tempDir := os.TempDir()
-	kataribeFile := filepath.Join(tempDir, "kataribe.log")
+	kataribeFile := filepath.Join(tempDir, kataribeLogFile)
 	cmd := exec.Command(
 		"sh", "-c", fmt.Sprintf(kataribeCommandTmpl, req.FileName, req.KataribeConfPath, kataribeFile),
 	)
@@ -296,7 +329,7 @@ func execKataribe(ctx context.Context, req AccessLogRequest) error {
 
 func execALP(ctx context.Context, req AccessLogRequest) error {
 	tempDir := os.TempDir()
-	alpFile := filepath.Join(tempDir, "alp.log")
+	alpFile := filepath.Join(tempDir, alpLogFile)
 	matchingGroups := alp.ConvertEchoRoutes(req.Routes)
 	cmd := exec.Command(
 		"sh", "-c", fmt.Sprintf(alpCommandTmpl, req.FileName, matchingGroups, req.ALPOption, alpFile),
