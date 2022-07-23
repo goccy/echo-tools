@@ -76,8 +76,10 @@ func (p *AccessLogProfiler) Start() error {
 	now := time.Now().Format(accessLogFileFormat)
 	alpAccessLog = nginxAccessLog
 	alpLogFile = fmt.Sprintf("%s.%s", "alp.log", now)
-	kataribeAccessLog = fmt.Sprintf("%s.%s.%s", nginxAccessLog, "kataribe", now)
-	kataribeLogFile = fmt.Sprintf("%s.%s", "katarib.log", now)
+
+	tempDir := os.TempDir()
+	kataribeAccessLog = filepath.Join(tempDir, fmt.Sprintf("access.kataribe.log.%s", now))
+	kataribeLogFile = fmt.Sprintf("%s.%s", "kataribe.log", now)
 
 	cmdMv := exec.Command(
 		"sh", "-c", fmt.Sprintf("sudo mv %s %s", nginxAccessLog, alpAccessLog),
