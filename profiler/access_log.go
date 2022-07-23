@@ -81,8 +81,9 @@ func (p *AccessLogProfiler) Start() error {
 	kataribeAccessLog = filepath.Join(tempDir, fmt.Sprintf("access.kataribe.log.%s", now))
 	kataribeLogFile = fmt.Sprintf("%s.%s", "kataribe.log", now)
 
+	oldAccessLog := fmt.Sprintf("%s.%s", nginxAccessLog, now)
 	cmdMv := exec.Command(
-		"sh", "-c", fmt.Sprintf("sudo mv %s %s", nginxAccessLog, alpAccessLog),
+		"sh", "-c", fmt.Sprintf("sudo mv %s %s", nginxAccessLog, oldAccessLog),
 	)
 	mvOut, err := cmdMv.CombinedOutput()
 	if err != nil {
